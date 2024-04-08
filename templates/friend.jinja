@@ -1,0 +1,45 @@
+<!-- 
+    This is a friend list page
+-->
+{% extends 'base.jinja' %}
+
+{% block content %} 
+<style>
+    nav {
+        border-bottom: 1px solid black;
+        overflow: auto
+    }
+
+    #message_box {
+        border: 1px solid black; 
+        height: 400px; 
+        width: 800px; 
+        overflow: auto;
+        padding: 2px;
+    }
+
+    .text  {
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+
+</style>
+
+<!--Navbar, you'll see the username here-->
+<nav style="border-bottom: 1px solid black;">
+    <ol style="float: right">
+        <li style="display:inline-block">Username:  {{ username }} </li>
+    </ol>
+</nav>
+
+<header>Friend List</header>
+
+<main>
+    <!-- List of friend that you had (hardcoded) -->
+    <ul>
+        <li>a</li>
+        <li>b</li>
+        <li>c</li>
+    </ul>
+</main>
+{% endblock %}
