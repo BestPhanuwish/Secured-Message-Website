@@ -16,7 +16,7 @@ Path("database") \
 # "database/main.db" specifies the database file
 # change it if you wish
 # turn echo = True to display the sql output
-engine = create_engine("sqlite:///database/main.db", echo=False)
+engine = create_engine("sqlite:///database/main.db", echo=True)
 
 # initializes the database
 Base.metadata.create_all(engine)
@@ -31,4 +31,41 @@ def insert_user(username: str, password: str):
 # gets a user from the database
 def get_user(username: str):
     with Session(engine) as session:
-        return session.get(User, username)
+        return session.query(User).filter_by(username=username).first()
+
+### Below is what I've implemented ###
+
+# add friend to the database
+def add_friend(username: str, friend_username: str):
+    with Session(engine) as session:
+        user = session.query(User).filter_by(username=username).first()
+        user.add_friend(friend_username)
+        session.commit()
+
+# add friend sent to the database
+def add_friend_sent(username: str, friend_username: str):
+    with Session(engine) as session:
+        user = session.query(User).filter_by(username=username).first()
+        user.add_friend_sent(friend_username)
+        session.commit()
+
+# remove friend sent on the database
+def remove_friend_sent(username: str, friend_username: str):
+    with Session(engine) as session:
+        user = session.query(User).filter_by(username=username).first()
+        user.remove_friend_sent(friend_username)
+        session.commit()
+
+# add friend request to the database
+def add_friend_request(username: str, friend_username: str):
+    with Session(engine) as session:
+        user = session.query(User).filter_by(username=username).first()
+        user.add_friend_request(friend_username)
+        session.commit()
+        
+# remove friend request on the database
+def remove_friend_request(username: str, friend_username: str):
+    with Session(engine) as session:
+        user = session.query(User).filter_by(username=username).first()
+        user.remove_friend_request(friend_username)
+        session.commit()

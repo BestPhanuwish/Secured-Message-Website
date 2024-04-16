@@ -88,8 +88,7 @@ def login_user():
     if result:
         hashed_password = result[1]
 
-        if hashed_password != User_Enter_Pwd:
-            print("Wrong Info")
+        if hashed_password == User_Enter_Pwd:
             return "Error Password not match"
         else:
             return url_for('home', username=request.json.get("username"))

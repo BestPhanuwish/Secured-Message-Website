@@ -10,8 +10,9 @@ Prisma docs also looks so much better in comparison
 or use SQLite, if you're not into fancy ORMs (but be mindful of Injection attacks :) )
 '''
 
-from sqlalchemy import String
+from sqlalchemy import String, PickleType, Column
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.ext.mutable import MutableList
 from typing import Dict
 
 # data models
@@ -29,6 +30,35 @@ class User(Base):
     # in other words we've mapped the username Python object property to an SQL column of type String 
     username: Mapped[str] = mapped_column(String, primary_key=True)
     password: Mapped[str] = mapped_column(String)
+    
+    # New attribute to store a list of friends and friend request
+    friends = Column(MutableList.as_mutable(PickleType), default=[])
+    friend_sent = Column(MutableList.as_mutable(PickleType), default=[])
+    friend_request = Column(MutableList.as_mutable(PickleType), default=[])
+    
+    # Method to add a friend to the user's friend list (your friend tab)
+    def add_friend(self, friend_username: str):
+        self.friends.append(friend_username)
+    
+    # Method to remove a friend to the user's friend list (your friend tab)
+    def remove_friend(self, friend_username: str):
+        self.friends.remove(friend_username)
+
+    # Method to add a friend that you've sent a request to (friend request tab)
+    def add_friend_sent(self, friend_username: str):
+        self.friend_sent.append(friend_username)
+        
+    # Method to remove a friend that you've sent a request to (friend request tab)
+    def remove_friend_sent(self, friend_username: str):
+        self.friend_sent.remove(friend_username)
+
+    # Method to add a friend that sent a request from (notification tab)
+    def add_friend_request(self, friend_username: str):
+        self.friend_request.append(friend_username)
+
+    # Method to remove a friend that sent a request from (notification tab)
+    def remove_friend_request(self, friend_username: str):
+        self.friend_request.remove(friend_username)
     
 
 # stateful counter used to generate the room id

@@ -11,6 +11,19 @@
         overflow: auto
     }
 
+    main {
+        display: flex;
+        height: 100%;
+    }
+
+    #message_part, #friend_part {
+        flex: 1;
+    }
+
+    #friend_part {
+        display: flex;
+    }
+
     #message_box {
         border: 1px solid black; 
         height: 400px; 
@@ -19,9 +32,24 @@
         padding: 2px;
     }
 
+    #friend_list, #request_list, #notification_list {
+        flex: 1;
+        padding: 0px 10px 10px 10px; /* Removed top padding */
+    }
+
+    #friend_list ul li, #request_list ul li {
+        padding: 5px
+    }
+
     .text  {
         margin-top: 2px;
         margin-bottom: 2px;
+    }
+
+    ul.no-bullets {
+        list-style-type: none; /* Remove bullets */
+        padding: 0; /* Remove padding */
+        margin: 0; /* Remove margins */
     }
 
 </style>
@@ -36,27 +64,71 @@
 <h1>Messaging App </h1>
 
 <main>
-    <!-- The messages are displayed here -->
-    <section id="message_box"></section>
 
-    <!-- These part ideally should be a form element, 
-    but I wrote this code a year ago and I don't want to break anything...-->
-    <section id="chat_box">
-        <p class="text">Chat with: </p>
-        <input id="receiver" placeholder="username">
-        <!-- MDN says its bad practice to use the onclick attribute,
-        but we're using it anyways coz its easy :)-->
-        <button onclick="join_room()">Chat</button>
-    </section>
+    <!-- Messages box part -->
+    <div id="message_part">
+        <!-- The messages are displayed here -->
+        <section id="message_box"></section>
 
-    <!-- The (message) input box is set to display: none initially, 
-    this means the input box is "invisible" initially-->
-    <section id="input_box" style="display: none" >
-        <p class="text">Message: </p>
-        <input id="message" placeholder="message">
-        <button onclick="send()">Send</button>
-        <button onclick="leave()">Leave Room</button>
-    </section>
+        <!-- These part ideally should be a form element, 
+        but I wrote this code a year ago and I don't want to break anything...-->
+        <!-- I'll make this invisible now as we don't need it -->
+        <section id="chat_box" style="display: none">
+            <p class="text">Chat with: </p>
+            <input id="receiver" placeholder="username">
+            <!-- MDN says its bad practice to use the onclick attribute,
+            but we're using it anyways coz its easy :)-->
+            <button onclick="join_room(this)">Chat</button>
+        </section>
+
+        <!-- The (message) input box is set to display: none initially, 
+        this means the input box is "invisible" initially-->
+        <section id="input_box" style="display: none" >
+            <p class="text">Message: </p>
+            <input id="message" placeholder="message">
+            <button onclick="send()">Send</button>
+            <button onclick="leave()">Leave Room</button>
+        </section>
+    </div>
+
+    <!-- Friend and friend request part -->
+    <div id="friend_part">
+        <section id="friend_list">
+            <h2>Your Friends</h2>
+            <ul class="no-bullets">
+                <li><button onclick="join_room()">Friend A</button></li>
+                <li><button onclick="join_room()">Friend B</button></li>
+            </ul>
+        </section>
+        <section id="request_list">
+            <h2>Friend Requests</h2>
+
+            <!-- Input to add new friend -->
+            <p class="text">Add friend: </p>
+            <input id="added_friend" placeholder="friend's username">
+            <button onclick="send_request()">Add</button>
+
+            <h3>Request Pending</h3>
+            <ul class="no-bullets">
+                <li>Friend C</li>
+            </ul>
+
+        </section>
+        <section id="notification_list">
+            <h2>Notification</h2>
+            <ul class="no-bullets">
+            </ul>
+        </section>
+    </div>
+
+    <!-- Hidden template -->
+    <li id="notification-box" style="display: none;">
+        <p>Friend sent you a friend request</p>
+        <button onclick="accept_request(this)">Accept</button>
+        <button onclick="decline_request(this)">Decline</button>
+    </li>
+    <li id="friend-button" style="display: none;"><button onclick="join_room(this)">Friend</button></li>
+
 </main>
 
 <script src="/static/js/libs/socket.io.min.js"></script>
@@ -73,14 +145,17 @@
 
     // when the user presses the enter key inside of the "receiver box"
     // the user joins a (socket) room
-     $("#receiver").on("keyup", (e) => {
-        if (e.key == "Enter") {
-            join_room();
-        }
-    })
+    // $("#receiver").on("keyup", (e) => {
+    //    if (e.key == "Enter") {
+    //        join_room();
+    //    }
+    //})
 
 
     $(document).ready(() => {
+        // call every time the page restart or enter the page
+        reload_friend_section()
+
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
         if (Cookies.get("room_id") == undefined) {
@@ -107,18 +182,90 @@
     socket.on("incoming", (msg, color="black") => {
         add_message(msg, color);
     })
+
+    // listen to an event to refresh friend section when
+    // send friend request, accept and decline friend request
+    socket.on("reload", (sender_name, receiver_name) => {
+        if (username == sender_name || username == receiver_name) {
+            reload_friend_section();
+        }
+    })
     
     // we'll send the message to the server by emitting a "send" event
     function send() {
         let message = $("#message").val();
         $("#message").val("");
         socket.emit("send", username, message, room_id);  
-    } 
+    }
+    
+    // we emit a send friend request event to the server
+    function send_request() {
+        let friend_username = $("#added_friend").val();
+        $("#added_friend").val("");
+
+        // pass in the friend username to the server
+        socket.emit("send_request", username, friend_username, (res) => {
+            // announce error if friend not exist or friend is already added
+            if (typeof res != "number") {
+                alert(res);
+                return;
+            }
+
+            // notify user and target user to refresh their friend section
+            // to update new state of friend section by updated database
+            socket.emit("reload_friend_section", username, friend_username);  
+        });
+    }
+
+    // we emit an accept friend request event to the server
+    function accept_request(button) {
+        // Get the name of the person who sent the request
+        let personName = button.parentElement.getAttribute("data");
+
+        // pass in the username and requestor username to the server
+        socket.emit("accept_request", username, personName, (res) => {
+            // announce error if there is something wrong
+            if (typeof res != "number") {
+                alert(res);
+                return;
+            }
+
+            // notify user and target user to refresh their friend section
+            // to update new state of friend section by updated database
+            socket.emit("reload_friend_section", username, personName);  
+
+            // remove the requestor notification
+            // button.parentElement.remove()
+        });
+    }
+
+    // we emit an decline friend request event to the server
+    function decline_request(button) {
+        // Get the name of the person who sent the request
+        let personName = button.parentElement.getAttribute("data");
+
+        // pass in the username and requestor username to the server
+        socket.emit("decline_request", username, personName, (res) => {
+            // announce error if there is something wrong
+            if (typeof res != "number") {
+                alert(res);
+                return;
+            }
+
+            // notify user and target user to refresh their friend section
+            // to update new state of friend section by updated database
+            socket.emit("reload_friend_section", username, personName);  
+
+            // remove the requestor notification
+            // button.parentElement.remove()
+        });
+    }
 
     // we emit a join room event to the server to join a room
-    function join_room() {
+    function join_room(button) {
        
-        let receiver = $("#receiver").val();
+        // let receiver = $("#receiver").val();
+        let receiver = button.parentElement.getAttribute("data")
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
@@ -147,7 +294,7 @@
         Cookies.remove("room_id");
         socket.emit("leave", username, room_id);
         $("#input_box").hide();
-        $("#chat_box").show();
+        // $("#chat_box").show();
     }
 
     // function to add a message to the message box
@@ -156,6 +303,50 @@
         let box = $("#message_box");
         let child = $(`<p style="color:${color}; margin: 0px;"></p>`).text(message);
         box.append(child);
+    }
+
+    // used to clear all the list in friend and friend request
+    // and load them with the information from server
+    function reload_friend_section() {
+        // Get the <ul> element by its ID or any other suitable selector
+        const friendUlElement = document.getElementById("friend_list").querySelector("ul");
+        const requestUlElement = document.getElementById("request_list").querySelector("ul");
+        const notificationUlElement = document.getElementById("notification_list").querySelector("ul");
+        
+        // Clear all list items inside the <ul> element
+        friendUlElement.innerHTML = "";
+        requestUlElement.innerHTML = "";
+        notificationUlElement.innerHTML = "";
+
+        // getting information from the server
+        socket.emit("get_friend_info", username, (res) => {
+            // announce error if something is wrong
+            if (typeof res == "string") {
+                alert(res);
+                return;
+            }
+
+            // putting friend element to respective blocks
+            res.friends.forEach(function (item, index) {
+                let child = document.getElementById("friend-button").cloneNode(true);
+                child.removeAttribute('style');
+                child.setAttribute("data", item)
+                child.querySelector("button").innerHTML=item
+                friendUlElement.append(child);
+            });
+            res.friend_sent.forEach(function (item, index) {
+                let child = document.createElement("li");
+                child.innerHTML=item
+                requestUlElement.append(child);
+            });
+            res.friend_request.forEach(function (item, index) {
+                let child = document.getElementById("notification-box").cloneNode(true);
+                child.removeAttribute('style');
+                child.setAttribute("data", item)
+                child.querySelector("p").innerHTML=item+" sent you a friend request"
+                notificationUlElement.append(child);
+            });
+        });
     }
     
 </script>
