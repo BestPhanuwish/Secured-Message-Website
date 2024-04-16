@@ -11,6 +11,9 @@ import db
 import secrets
 import bcrypt
 import sqlite3
+from cryptography.fernet import Fernet
+from flask import Flask, request, session, jsonify
+from functools import wraps
 
 # import logging
 
@@ -27,19 +30,24 @@ socketio = SocketIO(app)
 # don't remove this!!
 import socket_routes
 
+message_history_db = {}
+
+
 # index page
 @app.route("/")
 def index():
     return render_template("index.jinja")
 
+
 # login page
 @app.route("/login")
-def login():    
+def login():
     return render_template("login.jinja")
+
 
 # friend page
 @app.route("/friend")
-def friend():    
+def friend():
     return render_template("friend.jinja")
 
 
@@ -55,17 +63,18 @@ def signup_user():
     if not request.is_json:
         abort(404)
 
-    username = request.json.get("username")
-    password = request.json.get("password")
+    username_enter = request.json.get("username")
+    password_enter = request.json.get("password")
 
     # Generate a salt
     salt = bcrypt.gensalt()
     # Hash the password with the salt
-    enc_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    enc_password = bcrypt.hashpw(password_enter.encode('utf-8'), salt)
 
-    if db.get_user(username) is None:
-        db.insert_user(username, enc_password)
-        return url_for('home', username=username)
+    if db.get_user(username_enter) is None:
+        db.insert_user(username_enter, enc_password)
+        return url_for('home', username=username_enter)
+
     return "Error: User already exists!"
 
 
@@ -86,12 +95,21 @@ def login_user():
     result = cursor.fetchone()
 
     if result:
+        # print("result: ", result)
         hashed_password = result[1]
+        
+        salt = hashed_password[:29]  # 29 is the length of the salt in bcrypt
+        pwd_hashed = hashed_password[29:]
 
-        if hashed_password != User_Enter_Pwd:
-            print("Wrong Info")
+        hashed_user_input_password = bcrypt.hashpw(User_Enter_Pwd.encode('utf-8'), salt)
+
+        if hashed_password != hashed_user_input_password:
+            # print("hash_password: ", hashed_password)
+            # print("UserEnter_Pwd: ", hashed_user_input_password)
             return "Error Password not match"
+
         else:
+            print("Welcome to join chat room")
             return url_for('home', username=request.json.get("username"))
 
 
@@ -99,6 +117,7 @@ def login_user():
 @app.errorhandler(404)
 def page_not_found(_):
     return render_template('404.jinja'), 404
+
 
 # home page, where the messaging app is
 @app.route("/home")
