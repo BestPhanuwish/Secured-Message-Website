@@ -21,6 +21,15 @@ engine = create_engine("sqlite:///database/main.db", echo=True)
 # initializes the database
 Base.metadata.create_all(engine)
 
+
+# "database/main.db" specifies the database file
+# change it if you wish
+# turn echo = True to display the sql output
+engine2 = create_engine("sqlite:///database/try_create.db", echo=True)
+# initializes the database
+Base.metadata.create_all(engine2)
+
+
 # inserts a user to the database
 def insert_user(username: str, password: str):
     with Session(engine) as session:
