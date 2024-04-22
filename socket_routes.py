@@ -6,6 +6,7 @@ file containing all the routes related to socket.io
 
 from flask_socketio import join_room, emit, leave_room
 from flask import request
+import sqlite3
 
 try:
     from __main__ import socketio
@@ -59,8 +60,16 @@ def send(username, message, room_id):
     database.commit()
 
     cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
-    result = cursor.fetchone()
-    print("result:", result)
+    message_history = cursor.fetchall()
+    for row in message_history:
+        print("result:", row)
+    
+# join room event handler
+# sent when the user joins a room
+@socketio.on("get_receiver")    
+def get_receiver(sender_name, receiver_name):
+    print(sender_name)
+    print(receiver_name)
     
 # join room event handler
 # sent when the user joins a room

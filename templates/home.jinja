@@ -285,6 +285,8 @@
             $("#chat_box").hide();
             $("#input_box").show();
         });
+
+        socket.emit("get_receiver", username, receiver)
      
     }
 
