@@ -43,10 +43,24 @@ def disconnect():
         return
     emit("incoming", (f"{username} has disconnected", "red"), to=int(room_id))
 
+
 # send message event handler
 @socketio.on("send")
 def send(username, message, room_id):
     emit("incoming", (f"{username}: {message}"), to=room_id)
+    print("room_id: ", room_id)
+    print("message: ", message)
+    print("username: ", username)
+    database = sqlite3.connect("database/chat_database.db")
+    cursor = database.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS history (room_id, sender, messages)")
+
+    cursor.execute("INSERT INTO history VALUES (?, ?, ?)", (room_id, username, message))
+    database.commit()
+
+    cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
+    result = cursor.fetchone()
+    print("result:", result)
     
 # join room event handler
 # sent when the user joins a room
