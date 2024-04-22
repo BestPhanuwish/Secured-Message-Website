@@ -73,7 +73,8 @@ def signup_user():
 
     if db.get_user(username_enter) is None:
         db.insert_user(username_enter, enc_password)
-        return url_for('home', username=username_enter)
+        print("Now, waiting for following page")
+        return url_for('login', username=username_enter)
 
     return "Error: User already exists!"
 
@@ -109,6 +110,7 @@ def login_user():
             return "Error Password not match"
 
         else:
+            session['username'] = Username_ENter
             print("Welcome to join chat room")
             return url_for('home', username=request.json.get("username"))
 
@@ -124,6 +126,12 @@ def page_not_found(_):
 def home():
     if request.args.get("username") is None:
         abort(404)
+
+    certify_username = session.get('username')
+    if certify_username is None:
+        print("This user not login")
+        return redirect(url_for('login'))
+
     return render_template("home.jinja", username=request.args.get("username"))
 
 
