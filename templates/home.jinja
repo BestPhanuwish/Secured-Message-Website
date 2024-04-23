@@ -195,7 +195,8 @@
     function send() {
         let message = $("#message").val();
         $("#message").val("");
-        socket.emit("send", username, message, room_id);  
+        let receiver = $("#receiver").val();
+        socket.emit("send", username, message, room_id, receiver);  
     }
     
     // we emit a send friend request event to the server
@@ -266,6 +267,12 @@
        
         // let receiver = $("#receiver").val();
         let receiver = button.parentElement.getAttribute("data")
+
+        // set value of hidden old receiver input field
+        // so that we can access that as a global variable
+        // and it change every time user click on different friend
+        let friendInput = document.getElementById("receiver");
+        friendInput.value = receiver
 
         // pass in the receiver of our message to the server
         // as well as the current user's username

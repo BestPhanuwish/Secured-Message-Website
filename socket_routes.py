@@ -47,11 +47,12 @@ def disconnect():
 
 # send message event handler
 @socketio.on("send")
-def send(username, message, room_id):
+def send(username, message, room_id, receiver):
     emit("incoming", (f"{username}: {message}"), to=room_id)
     print("room_id: ", room_id)
     print("message: ", message)
     print("username: ", username)
+    print("receiver: ", receiver)
     database = sqlite3.connect("database/chat_database.db")
     cursor = database.cursor()
     cursor.execute("CREATE TABLE IF NOT EXISTS history (room_id, sender, messages)")
