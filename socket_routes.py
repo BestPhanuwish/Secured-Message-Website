@@ -45,32 +45,51 @@ def disconnect():
     emit("incoming", (f"{username} has disconnected", "red"), to=int(room_id))
 
 
-# send message event handler
 @socketio.on("send")
 def send(username, message, room_id, receiver):
     emit("incoming", (f"{username}: {message}"), to=room_id)
     print("room_id: ", room_id)
     print("message: ", message)
     print("username: ", username)
-    print("receiver: ", receiver)
+    print("reveiver", receiver)
+
+    # table_name = username+receiver
+    # print("table_name", table_name)
+
     database = sqlite3.connect("database/chat_database.db")
     cursor = database.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS history (room_id, sender, messages)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
 
-    cursor.execute("INSERT INTO history VALUES (?, ?, ?)", (room_id, username, message))
+    cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
     database.commit()
 
     cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
-    message_history = cursor.fetchall()
-    for row in message_history:
-        print("result:", row)
+    result = cursor.fetchone()
+    print("result:", result)
+
+
+# @socketio.on("get_receiver")
+# def get_receiver(sender_name, receiver_name):
+#     print(sender_name)
+#     print(receiver_name)
+#     table_name = sender_name+receiver_name
+#     database = sqlite3.connect("database/chat_database.db")
+#     cursor = database.cursor()
+#     cursor.execute("CREATE TABLE IF NOT EXISTS (?) (room_id, sender, messages, receiver_name)",(table_name))
+#     cursor.execute("INSERT INTO history VALUES (?, ?, ?, ?)", ("",sender_name, "" ,receiver_name))
+#     database.commit()
+
+
+@socketio.on("join")
+def get_messages(sender_name, receiver_name):
+    conn = sqlite3.connect('database/chat_database.db')
+    cursor = conn.cursor()
     
-# join room event handler
-# sent when the user joins a room
-@socketio.on("get_receiver")    
-def get_receiver(sender_name, receiver_name):
-    print(sender_name)
-    print(receiver_name)
+    cursor.execute("SELECT * FROM history2 WHERE sender = ? or sender = ?", (sender_name, receiver_name))
+    message_history = cursor.fetchall()
+    
+   # emit('messages', message_history, broadcast=False)
+
     
 # join room event handler
 # sent when the user joins a room
