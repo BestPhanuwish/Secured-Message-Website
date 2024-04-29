@@ -57,16 +57,16 @@ def send(username, message, room_id, receiver, encrypted_message):
     # table_name = username+receiver
     # print("table_name", table_name)
 
-    # database = sqlite3.connect("database/chat_database.db")
-    # cursor = database.cursor()
-    # cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
+    database = sqlite3.connect("database/chat_database.db")
+    cursor = database.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
 
-    # cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
-    # database.commit()
+    cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
+    database.commit()
 
-    # cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
-    # result = cursor.fetchone()
-    # print("result:", result)
+    cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
+    result = cursor.fetchone()
+    print("result:", result)
 
 
 # @socketio.on("get_receiver")
@@ -85,11 +85,23 @@ def get_messages(sender_name, receiver_name):
     conn = sqlite3.connect('database/chat_database.db')
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM history2 WHERE sender = ? or sender = ?", (sender_name, receiver_name))
-    message_history = cursor.fetchall()
+    message_history = None
+    try:
+        cursor.execute("SELECT * FROM history2 WHERE sender = ? OR sender = ?", (sender_name, receiver_name))
+        message_history = cursor.fetchall()
+    except Exception as e:
+        print(e)
+        return
+    
+    # Check if message_history is None or empty if it's empty then don't do anything
+    if not message_history:
+        return
+    
     print(message_history)
     
-   # emit('messages', message_history, broadcast=False)
+    for obj in message_history:
+        message = obj[3]
+        emit('incoming', message)
 
     
 # join room event handler
@@ -106,8 +118,6 @@ def join(sender_name, receiver_name, sender_public_key):
         return "Unknown sender!"
 
     room_id = room.get_room_id(receiver_name)
-    
-    get_messages(sender_name, receiver_name)
 
     # if the user is already inside of a room 
     if room_id is not None:
@@ -116,8 +126,9 @@ def join(sender_name, receiver_name, sender_public_key):
         join_room(room_id)
         # emit to everyone in the room except the sender
         emit("incoming", (f"{sender_name} has joined the room.", "green"), to=room_id, include_self=False)
+        get_messages(sender_name, receiver_name) # load the message history
         # emit the public key to everyone except the sender
-        emit("send_public_key", (sender_public_key), to=room_id, include_self=False)
+        emit("send_public_key", (sender_public_key), to=room_id)
         # emit only to the sender
         emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"))
         return room_id
@@ -128,6 +139,7 @@ def join(sender_name, receiver_name, sender_public_key):
     room_id = room.create_room(sender_name, receiver_name)
     join_room(room_id)
     emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"), to=room_id)
+    get_messages(sender_name, receiver_name) # load the message history
     return room_id
 
 # leave room event handler
