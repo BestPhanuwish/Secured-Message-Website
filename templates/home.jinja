@@ -153,15 +153,15 @@
     //    }
     //})
 
-
     $(document).ready(() => {
         // call every time the page restart or enter the page
-        console.log(window.localStorage.getItem("username"));
-        console.log(username);
+
+        // kick the user if they tried to change url and login as another person
         if (window.localStorage.getItem("username") != username) {
             alert("NOT YOUR USERNAME");
             window.open("404", "_self");
         }
+
         reload_friend_section();
 
         // room_id is undefined if the user hasn't joined a room
@@ -388,8 +388,6 @@
     */
     async function decrypt(secret, message) {
 
-        console.log(message);
-
         let key = await getKey(secret, message.salt);
 
         try {
@@ -412,18 +410,6 @@
     
     // we'll send the message to the server by emitting a "send" event
     function send() {
-
-        let msg = username + ": " + $("#message").val();
-        encrypt(shared_secret, msg)
-            .then(function(encrypted_message) {
-                console.log(encrypted_message);
-                decrypt(shared_secret, encrypted_message)
-                    .then(function(decrypted_message) {
-                        console.log(decrypted_message)
-                        console.log("finish self decrypt");
-                    })
-            })
-
         // not allow to send message if we don't have shared secret
         if (shared_secret == null) { 
             alert("The other user is not join the room, message not sent");

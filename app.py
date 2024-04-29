@@ -139,3 +139,16 @@ def home():
 
 if __name__ == '__main__':
     socketio.run(app)
+    """
+    # If you had https you can uncomment this part
+    ssl_args = {
+        'certfile': './database/new_localhost.crt',
+        'keyfile': './database/new_localhost.key'
+    }
+
+    listener = eventlet.listen(('localhost', 5000))
+
+    ssl_listener = eventlet.wrap_ssl(listener, **ssl_args, servere_side=True)
+
+    eventlet.wsgi.server(ssl_listener, app)
+    """
