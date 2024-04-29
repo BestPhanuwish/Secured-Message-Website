@@ -183,10 +183,13 @@
 
     // an incoming from other user message
     socket.on("incoming_message", (msg, color="black") => {
+        add_message(msg, color);
+        /*
         decrypt(shared_secret, JSON.parse(msg))
             .then(function(message) {
                 add_message(message, color);
             })
+        */
     })
 
     // listen to an event to refresh friend section when
@@ -389,10 +392,10 @@
         message = username + ": " + message;
         $("#message").val("");
         encrypt(shared_secret, message)
-            .then(function(message) {
+            .then(function(encrypted_message) {
                 console.log(message);
                 let receiver = $("#receiver").val();
-                socket.emit("send", username, JSON.stringify(message), room_id, receiver);
+                socket.emit("send", username, message, room_id, receiver, JSON.stringify(encrypted_message));
             })
     }
     
