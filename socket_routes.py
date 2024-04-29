@@ -3,9 +3,8 @@ socket_routes
 file containing all the routes related to socket.io
 '''
 
-
 from flask_socketio import join_room, emit, leave_room
-from flask import request, json
+from flask import request, json, url_for
 import sqlite3
 import base64
 
@@ -59,12 +58,21 @@ def send(username, message, room_id, receiver, encrypted_message):
 
     database = sqlite3.connect("database/chat_database.db")
     cursor = database.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
 
-    cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS history3"
+        "(id INTEGER PRIMARY KEY AUTOINCREMENT, sender, receiver_name, messages)")
+
+    cursor.execute("INSERT INTO history3 (sender, receiver_name, messages) VALUES (?, ?, ?)",
+                   (username, receiver, message))
+
+    # cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
+    #
+    # cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
+
     database.commit()
 
-    cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
+    cursor.execute("SELECT * FROM history3 WHERE sender = ?", (username,))
     result = cursor.fetchone()
     print("result:", result)
 
@@ -87,7 +95,7 @@ def get_messages(sender_name, receiver_name):
     
     message_history = None
     try:
-        cursor.execute("SELECT * FROM history2 WHERE sender = ? OR sender = ?", (sender_name, receiver_name))
+        cursor.execute("SELECT * FROM history3 WHERE (sender = ? AND receiver_name = ?) OR (sender = ? AND receiver_name = ?) ORDER BY id", (sender_name, receiver_name, receiver_name, sender_name))
         message_history = cursor.fetchall()
     except Exception as e:
         print(e)
@@ -240,7 +248,7 @@ def get_friend_info(username):
 
     if db_getUser is None:
         print("Unknown User")
-        return "USER NOT EXIST"
+        return url_for('login')
 
     user = db.get_user(username)
 
