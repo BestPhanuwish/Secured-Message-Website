@@ -49,7 +49,7 @@ def disconnect():
 def send(username, message, room_id, receiver, encrypted_message):
     print(encrypted_message)
     print("message:", message)
-    emit("incoming_message", (message), to=room_id)
+    emit("incoming_message", (encrypted_message), to=room_id)
     print("room_id: ", room_id)
     print("username: ", username)
     print("reveiver", receiver)

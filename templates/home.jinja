@@ -215,14 +215,12 @@
 
     // an incoming from other user message
     socket.on("incoming_message", (msg, color="black") => {
-        add_message(msg, color);
+        // add_message(msg, color);
         console.log(msg)
-        /*
         decrypt(shared_secret, msg)
             .then(function(message) {
                 add_message(message, color);
             })
-        */
     })
 
     // listen to an event to refresh friend section when
