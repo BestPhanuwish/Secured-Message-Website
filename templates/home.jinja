@@ -85,8 +85,10 @@
         this means the input box is "invisible" initially-->
         <section id="input_box" style="display: none" >
             <p class="text">Message: </p>
-            <input id="message" placeholder="message">
-            <button onclick="send()">Send</button>
+            <form id="message-form">
+                <input id="message" placeholder="message">
+                <button type="submit">Send</button>
+            </form>
             <button onclick="leave()">Leave Room</button>
         </section>
     </div>
@@ -103,8 +105,10 @@
 
             <!-- Input to add new friend -->
             <p class="text">Add friend: </p>
-            <input id="added_friend" placeholder="friend's username">
-            <button onclick="send_request()">Add</button>
+            <form id="friend-form">
+                <input id="added_friend" placeholder="friend's username">
+                <button type="submit">Add</button>
+            </form>
 
             <h3>Request Pending</h3>
             <ul class="no-bullets">
@@ -166,6 +170,28 @@
         $("#input_box").show();
         room_id = parseInt(Cookies.get("room_id"));
     })
+
+    // Function to check if the input contains XSS character
+    // see: https://security.snyk.io/vuln/SNYK-JS-SERIALIZEJAVASCRIPT-536840
+    function containsSpecialCharacters(text) {
+        var regex = /[?&/<>]/;
+        return regex.test(text);
+    }
+
+    // form is safer than just onclick function
+    document.getElementById("friend-form").addEventListener("submit", function(event) {
+        event.preventDefault(); // Prevent the default form submission behavior
+
+        // call function
+        send_request();
+    });
+
+    document.getElementById("message-form").addEventListener("submit", function(event) {
+        event.preventDefault(); // Prevent the default form submission behavior
+
+        // call function
+        send();
+    });
     
     // Here's the Socket IO part of the code
     // things get a bit complicated here so brace yourselves :P
@@ -387,8 +413,16 @@
             return;
         }
 
-        // get and encrypt the message
         let message = $("#message").val();
+
+        // Serialize the input to prevent XSS attacks
+        // (we not takes input with special character)
+        if (containsSpecialCharacters(message) || containsSpecialCharacters(message)) {
+            alert("message can't contain following character: ?&/<>");
+            return;
+        }
+
+        // get and encrypt the message
         message = username + ": " + message;
         $("#message").val("");
         encrypt(shared_secret, message)
@@ -402,6 +436,14 @@
     // we emit a send friend request event to the server
     function send_request() {
         let friend_username = $("#added_friend").val();
+
+        // Serialize the input to prevent XSS attacks
+        // (we not takes input with special character)
+        if (containsSpecialCharacters(friend_username) || containsSpecialCharacters(friend_username)) {
+            alert("username can't contain following character: ?&/<>");
+            return;
+        }
+
         $("#added_friend").val("");
 
         // pass in the friend username to the server

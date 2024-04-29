@@ -113,6 +113,8 @@ def login_user():
             session['username'] = Username_ENter
             print("Welcome to join chat room")
             return url_for('home', username=request.json.get("username"))
+    else:
+        return "Error username not found"
 
 
 # handler when a "404" error happens

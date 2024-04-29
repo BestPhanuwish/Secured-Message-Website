@@ -6,14 +6,25 @@ Sign up page, pretty much the same as login.
 
 {% block content %} 
     <h1>Sign Up</h1>
-    <p>Username</p>
-    <input id="username"/>
-    <p>Password</p>
-    <input id="password" type="password"/>
-    <button onclick="signup()">Sign up</button>
+    <form id="signup-form">
+        <p>Username</p>
+        <input id="username"/>
+        <p>Password</p>
+        <input id="password" type="password"/>
+        <button type="submit">Sign up</button>
+    </form>
 
     <script>
-         function isValidURL(string) {
+
+        // form is safer than just onclick function
+        document.getElementById("signup-form").addEventListener("submit", function(event) {
+            event.preventDefault(); // Prevent the default form submission behavior
+    
+            // call function
+            signup();
+        });
+
+        function isValidURL(string) {
             if (string.length == 0) {
                 return false;
             }
@@ -23,8 +34,22 @@ Sign up page, pretty much the same as login.
             return false;
         }
 
+        // Function to check if the input contains XSS character
+        // see: https://security.snyk.io/vuln/SNYK-JS-SERIALIZEJAVASCRIPT-536840
+        function containsSpecialCharacters(text) {
+            var regex = /[?&/<>]/;
+            return regex.test(text);
+        }
+
         // this function is identical to login(), see login.jinja
         async function signup() {
+            // Serialize the input to prevent XSS attacks
+            // (we not takes input with special character)
+            if (containsSpecialCharacters($("#username").val()) || containsSpecialCharacters($("#password").val())) {
+                alert("username or password can't contain following character: ?&/<>");
+                return;
+            }
+            
             let loginURL = "{{ url_for('signup_user') }}";
             let res = await axios.post(loginURL, {
                 username: $("#username").val(),
