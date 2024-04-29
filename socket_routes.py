@@ -48,6 +48,7 @@ def disconnect():
 
 @socketio.on("send")
 def send(username, message, room_id, receiver, encrypted_message):
+    print(encrypted_message)
     print("message:", message)
     emit("incoming_message", (message), to=room_id)
     print("room_id: ", room_id)
@@ -64,7 +65,7 @@ def send(username, message, room_id, receiver, encrypted_message):
     cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
     database.commit()
 
-    cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
+    # cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
     result = cursor.fetchone()
     print("result:", result)
 
