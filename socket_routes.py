@@ -5,8 +5,9 @@ file containing all the routes related to socket.io
 
 
 from flask_socketio import join_room, emit, leave_room
-from flask import request
+from flask import request, json
 import sqlite3
+import base64
 
 try:
     from __main__ import socketio
@@ -47,25 +48,25 @@ def disconnect():
 
 @socketio.on("send")
 def send(username, message, room_id, receiver):
-    emit("incoming", (f"{username}: {message}"), to=room_id)
+    print("message:", message)
+    emit("incoming_message", (message), to=room_id)
     print("room_id: ", room_id)
-    print("message: ", message)
     print("username: ", username)
     print("reveiver", receiver)
 
     # table_name = username+receiver
     # print("table_name", table_name)
 
-    database = sqlite3.connect("database/chat_database.db")
-    cursor = database.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
+    # database = sqlite3.connect("database/chat_database.db")
+    # cursor = database.cursor()
+    # cursor.execute("CREATE TABLE IF NOT EXISTS history2 (room_id, sender, receiver_name, messages)")
 
-    cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
-    database.commit()
+    # cursor.execute("INSERT INTO history2 VALUES (?, ?, ?, ?)", (room_id, username, receiver, message))
+    # database.commit()
 
-    cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
-    result = cursor.fetchone()
-    print("result:", result)
+    # cursor.execute("SELECT * FROM history WHERE sender = ?", (username,))
+    # result = cursor.fetchone()
+    # print("result:", result)
 
 
 # @socketio.on("get_receiver")
@@ -80,13 +81,13 @@ def send(username, message, room_id, receiver):
 #     database.commit()
 
 
-@socketio.on("join")
 def get_messages(sender_name, receiver_name):
     conn = sqlite3.connect('database/chat_database.db')
     cursor = conn.cursor()
     
     cursor.execute("SELECT * FROM history2 WHERE sender = ? or sender = ?", (sender_name, receiver_name))
     message_history = cursor.fetchall()
+    print(message_history)
     
    # emit('messages', message_history, broadcast=False)
 
@@ -94,7 +95,7 @@ def get_messages(sender_name, receiver_name):
 # join room event handler
 # sent when the user joins a room
 @socketio.on("join")
-def join(sender_name, receiver_name):
+def join(sender_name, receiver_name, sender_public_key):
     
     receiver = db.get_user(receiver_name)
     if receiver is None:
@@ -105,6 +106,8 @@ def join(sender_name, receiver_name):
         return "Unknown sender!"
 
     room_id = room.get_room_id(receiver_name)
+    
+    get_messages(sender_name, receiver_name)
 
     # if the user is already inside of a room 
     if room_id is not None:
@@ -113,6 +116,8 @@ def join(sender_name, receiver_name):
         join_room(room_id)
         # emit to everyone in the room except the sender
         emit("incoming", (f"{sender_name} has joined the room.", "green"), to=room_id, include_self=False)
+        # emit the public key to everyone except the sender
+        emit("send_public_key", (sender_public_key), to=room_id, include_self=False)
         # emit only to the sender
         emit("incoming", (f"{sender_name} has joined the room. Now talking to {receiver_name}.", "green"))
         return room_id
@@ -224,3 +229,9 @@ def get_friend_info(username):
         "friend_request": user.friend_request,
     }
     
+# call back event to give the other public key to user
+@socketio.on("give_public_key")
+def give_public_key(public_key, room_id):
+    print("The user had give public key back")
+    print(public_key)
+    emit("sendback_public_key", (public_key), to=room_id, include_self=False)

@@ -50,10 +50,41 @@
                 return;
             }
 
+            // generate important keys and save within localstorage
+            generateECDHKeyPair();
+
             // redirects to the URL (ie. res.data),
             // we use _self here since we all hate that moment
             // when the browser opens a new tab
             window.open(res.data, "_self")
         }
+
+        // we generate key pair for user when they able to login
+        async function generateECDHKeyPair() {
+            let keyPair = await window.crypto.subtle.generateKey(
+                {
+                    name: "ECDH",
+                    namedCurve: "P-384",
+                },
+                true,
+                ["deriveBits"]
+            );
+    
+            // save data to local storage
+            // Export the public key to JWK format
+            console.log(keyPair.publicKey);
+            const jwkPublicKey = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+          
+            // Store the JWK representation of the public key in local storage
+            window.localStorage.setItem("publicKey", JSON.stringify(jwkPublicKey));
+          
+            // Export the private key to JWK format
+            console.log(keyPair.privateKey);
+            const jwkPrivateKey = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+          
+            // Store the JWK representation of the private key in local storage
+            window.localStorage.setItem("privateKey", JSON.stringify(jwkPrivateKey));
+        }
+
     </script>
 {% endblock %}

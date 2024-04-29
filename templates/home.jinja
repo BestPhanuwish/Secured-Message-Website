@@ -96,8 +96,6 @@
         <section id="friend_list">
             <h2>Your Friends</h2>
             <ul class="no-bullets">
-                <li><button onclick="join_room()">Friend A</button></li>
-                <li><button onclick="join_room()">Friend B</button></li>
             </ul>
         </section>
         <section id="request_list">
@@ -110,7 +108,6 @@
 
             <h3>Request Pending</h3>
             <ul class="no-bullets">
-                <li>Friend C</li>
             </ul>
 
         </section>
@@ -134,6 +131,7 @@
 <script src="/static/js/libs/socket.io.min.js"></script>
 <script>
     let room_id = 0;
+    let shared_secret;
 
     // when the user presses the "Enter" key inside of the "message box", 
     // the message is sent to the server
@@ -154,7 +152,7 @@
 
     $(document).ready(() => {
         // call every time the page restart or enter the page
-        reload_friend_section()
+        reload_friend_section();
 
         // room_id is undefined if the user hasn't joined a room
         // we early return in this case
@@ -183,6 +181,14 @@
         add_message(msg, color);
     })
 
+    // an incoming from other user message
+    socket.on("incoming_message", (msg, color="black") => {
+        decrypt(shared_secret, JSON.parse(msg))
+            .then(function(message) {
+                add_message(message, color);
+            })
+    })
+
     // listen to an event to refresh friend section when
     // send friend request, accept and decline friend request
     socket.on("reload", (sender_name, receiver_name) => {
@@ -190,13 +196,204 @@
             reload_friend_section();
         }
     })
+
+    // since getting key from local storage involve transfer back to Crypto object
+    async function getPublicKeyFromLocalStorage() {
+        let publicKey = JSON.parse(window.localStorage.getItem("publicKey"));
+        
+        // Import the public key object back into CryptoKey objects
+        return await window.crypto.subtle.importKey(
+            "jwk", // JSON Web Key format
+            publicKey,
+            {
+                name: "ECDH",
+                namedCurve: "P-384",
+            },
+            true, // Whether the key is extractable
+            [] // Key usages
+        );
+        // idk why i have to leave key usage empty when it's public key
+        // source: https://stackoverflow.com/questions/63179141/the-jwk-key-ops-member-was-inconsistent-with-that-specified-by-the-web-crypto
+    }
+
+    async function getPrivateKeyFromLocalStorage() {
+        let privateKey = JSON.parse(window.localStorage.getItem("privateKey"));
+        
+        // Import the private key object back into CryptoKey objects
+        return await window.crypto.subtle.importKey(
+            "jwk", // JSON Web Key format
+            privateKey,
+            {
+                name: "ECDH",
+                namedCurve: "P-384",
+            },
+            true, // Whether the key is extractable
+            ["deriveBits"] // Key usages
+        );
+    }
+
+    // derive shared secret from own private and other public key
+    // using ECDH mechanism to generate unpredictable key
+    async function deriveSharedSecret(privateKey, publicKey) {
+        const secret = await window.crypto.subtle.deriveBits(
+          { name: "ECDH", public: publicKey },
+          privateKey,
+          384
+        );
+    
+        return window.crypto.subtle.importKey(
+          "raw",
+          secret,
+          { name: "HKDF" },
+          false,
+          ["deriveKey"]
+        );
+    }
+
+    function generateSharedSecret(sender_public_key) {
+        getPrivateKeyFromLocalStorage()
+            .then(function(privateKey) {
+                window.crypto.subtle.importKey(
+                    "jwk", // JSON Web Key format
+                    sender_public_key,
+                    {
+                        name: "ECDH",
+                        namedCurve: "P-384",
+                    },
+                    true, // Whether the key is extractable
+                    [] // Key usages
+                ).then(function(publicKey) {
+                    deriveSharedSecret(
+                        privateKey,
+                        publicKey
+                    ).then(function(sharedSecret) {
+                        console.log("generate shared secret");
+                        console.log(sharedSecret);
+                        shared_secret = sharedSecret;
+                        window.localStorage.setItem("sharedSecret", JSON.stringify(sharedSecret));
+                    })
+                })
+            })
+    }
+
+    // listen to an event to receive the public key
+    socket.on("send_public_key", (sender_public_key) => {
+        // calculate the shared secret and set it in local storage
+        console.log("send_public_key called")
+        generateSharedSecret(sender_public_key);
+
+        // send back the public key to the other user
+        let publicKey = JSON.parse(window.localStorage.getItem("publicKey"));
+        socket.emit("give_public_key", publicKey, room_id);
+    })
+
+    // listen to an event to receive the public key from other user
+    socket.on("sendback_public_key", (sender_public_key) => {
+        // calculate the shared secret and set it in local storage
+        generateSharedSecret(sender_public_key);
+        console.log("receive public key");
+    })
+
+    /*
+    Fetch the contents of the "message" textbox, and encode it
+    in a form we can use for the encrypt operation.
+    */
+    function getMessageEncoding(plain_message) {
+        let enc = new TextEncoder();
+        return enc.encode(plain_message);
+    }
+
+    /*
+    Given some key material and some random salt,
+    derive an AES-GCM key using HKDF.
+    */
+    function getKey(keyMaterial, salt) {
+        return window.crypto.subtle.deriveKey(
+            {
+                name: "HKDF",
+                salt: salt,
+                info: new Uint8Array("Encryption example"),
+                hash: "SHA-256",
+            },
+            keyMaterial,
+            { name: "AES-GCM", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+        );
+    }
+
+    /*
+    Encrypt the message using the shared secret key.
+    */
+    async function encrypt(secret, plain_message) {
+        const message = {
+            salt: null,
+            iv: null,
+            ciphertext: null,
+        };
+
+        message.salt = window.crypto.getRandomValues(new Uint8Array(16));
+        let key = await getKey(secret, message.salt);
+        message.iv = window.crypto.getRandomValues(new Uint8Array(12));
+        let encoded = getMessageEncoding(plain_message);
+
+        message.ciphertext = await window.crypto.subtle.encrypt(
+            {
+                name: "AES-GCM",
+                iv: message.iv,
+            },
+            key,
+            encoded
+        );
+
+        return message;
+    }
+
+    /*
+    Decrypt the message using the shared secret key.
+    */
+    async function decrypt(secret, message) {
+
+        console.log(message);
+
+        let key = await getKey(secret, message.salt);
+
+        try {
+            let decrypted = await window.crypto.subtle.decrypt(
+                {
+                name: "AES-GCM",
+                iv: message.iv,
+                },
+                key,
+                message.ciphertext
+            );
+
+            let dec = new TextDecoder();
+            return dec.decode(decrypted);
+        } catch (e) {
+            alert(e);
+        }
+
+    }
     
     // we'll send the message to the server by emitting a "send" event
     function send() {
+        // not allow to send message if we don't have shared secret
+        if (shared_secret == null) { 
+            alert("The other user is not connected, message not sent");
+            return;
+        }
+
+        // get and encrypt the message
         let message = $("#message").val();
+        message = username + ": " + message;
         $("#message").val("");
-        let receiver = $("#receiver").val();
-        socket.emit("send", username, message, room_id, receiver);  
+        encrypt(shared_secret, message)
+            .then(function(message) {
+                console.log(message);
+                let receiver = $("#receiver").val();
+                socket.emit("send", username, JSON.stringify(message), room_id, receiver);
+            })
     }
     
     // we emit a send friend request event to the server
@@ -235,8 +432,6 @@
             // to update new state of friend section by updated database
             socket.emit("reload_friend_section", username, personName);  
 
-            // remove the requestor notification
-            // button.parentElement.remove()
         });
     }
 
@@ -257,26 +452,34 @@
             // to update new state of friend section by updated database
             socket.emit("reload_friend_section", username, personName);  
 
-            // remove the requestor notification
-            // button.parentElement.remove()
         });
     }
 
     // we emit a join room event to the server to join a room
     function join_room(button) {
-       
+
         // let receiver = $("#receiver").val();
-        let receiver = button.parentElement.getAttribute("data")
+        let receiver = button.parentElement.getAttribute("data");
 
         // set value of hidden old receiver input field
         // so that we can access that as a global variable
         // and it change every time user click on different friend
         let friendInput = document.getElementById("receiver");
-        friendInput.value = receiver
+        if (friendInput.value == receiver) {
+            return; // we don't want the user to join on the same room
+        }
+
+        // when we join the other room, we leave the current room
+        if (Cookies.get("room_id") != null) {
+            leave();
+        }
+
+        friendInput.value = receiver;
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
-        socket.emit("join", username, receiver, (res) => {
+        let publicKey = JSON.parse(window.localStorage.getItem("publicKey"));
+        socket.emit("join", username, receiver, publicKey, (res) => {
             // res is a string with the error message if the error occurs
             // this is a pretty bad way of doing error handling, but watevs
             if (typeof res != "number") {
@@ -292,14 +495,16 @@
             $("#chat_box").hide();
             $("#input_box").show();
         });
-
-        socket.emit("get_receiver", username, receiver)
      
     }
 
     // function when the user clicks on "Leave Room"
     // emits a "leave" event, telling the server that we want to leave the room
     function leave() {
+        let friendInput = document.getElementById("receiver");
+        friendInput.value = null;
+        shared_secret = null;
+        window.localStorage.removeItem("sharedSecret");
         Cookies.remove("room_id");
         socket.emit("leave", username, room_id);
         $("#input_box").hide();
