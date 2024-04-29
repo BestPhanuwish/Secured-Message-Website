@@ -219,15 +219,35 @@ def reload_friend_section(sender_name, receiver_name):
 # get all the friend information from database and pass to client
 @socketio.on("get_friend_info")
 def get_friend_info(username):
+    conn = sqlite3.connect('database/main.db')
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM user WHERE username = ?", (username,))
+    db_getUser = cursor.fetchone()
+    # print("user: ", db_getUser[0])
+
+    if db_getUser is None:
+        print("Unknown User")
+        return url_for('login')
+
     user = db.get_user(username)
-    if user is None:
-        return "Unknown user!"
-    
+
     return {
         "friends": user.friends,
         "friend_sent": user.friend_sent,
         "friend_request": user.friend_request,
     }
+
+    # The old version
+    # user = db.get_user(username)
+    # if user is None:
+    #     return "Unknown user!"
+    
+    # return {
+    #     "friends": user.friends,
+    #     "friend_sent": user.friend_sent,
+    #     "friend_request": user.friend_request,
+    # }
     
 # call back event to give the other public key to user
 @socketio.on("give_public_key")
