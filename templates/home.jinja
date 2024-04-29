@@ -156,9 +156,9 @@
 
     $(document).ready(() => {
         // call every time the page restart or enter the page
-        console.log(Cookies.get("username"));
+        console.log(window.localStorage.getItem("username"));
         console.log(username);
-        if (Cookies.get("username") != username) {
+        if (window.localStorage.getItem("username") != username) {
             alert("NOT YOUR USERNAME");
             window.open("404", "_self");
         }

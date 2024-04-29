@@ -77,6 +77,9 @@
             // generate important keys and save within localstorage
             generateECDHKeyPair();
 
+            // set username to localstorage
+            window.localStorage.setItem("username", $("#username").val());
+
             // redirects to the URL (ie. res.data),
             // we use _self here since we all hate that moment
             // when the browser opens a new tab
