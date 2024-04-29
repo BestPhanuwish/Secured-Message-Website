@@ -156,6 +156,12 @@
 
     $(document).ready(() => {
         // call every time the page restart or enter the page
+        console.log(Cookies.get("username"));
+        console.log(username);
+        if (Cookies.get("username") != username) {
+            alert("NOT YOUR USERNAME");
+            window.open("404", "_self");
+        }
         reload_friend_section();
 
         // room_id is undefined if the user hasn't joined a room
@@ -210,8 +216,9 @@
     // an incoming from other user message
     socket.on("incoming_message", (msg, color="black") => {
         add_message(msg, color);
+        console.log(msg)
         /*
-        decrypt(shared_secret, JSON.parse(msg))
+        decrypt(shared_secret, msg)
             .then(function(message) {
                 add_message(message, color);
             })
@@ -407,6 +414,18 @@
     
     // we'll send the message to the server by emitting a "send" event
     function send() {
+
+        let msg = username + ": " + $("#message").val();
+        encrypt(shared_secret, msg)
+            .then(function(encrypted_message) {
+                console.log(encrypted_message);
+                decrypt(shared_secret, encrypted_message)
+                    .then(function(decrypted_message) {
+                        console.log(decrypted_message)
+                        console.log("finish self decrypt");
+                    })
+            })
+
         // not allow to send message if we don't have shared secret
         if (shared_secret == null) { 
             alert("The other user is not join the room, message not sent");
@@ -427,9 +446,9 @@
         $("#message").val("");
         encrypt(shared_secret, message)
             .then(function(encrypted_message) {
-                console.log(message);
+                console.log(encrypted_message);
                 let receiver = $("#receiver").val();
-                socket.emit("send", username, message, room_id, receiver, JSON.stringify(encrypted_message));
+                socket.emit("send", username, message, room_id, receiver, encrypted_message);
             })
     }
     
@@ -500,6 +519,14 @@
         });
     }
 
+    function clear_message() {
+        // Get the reference to the message_box element
+        let messageBox = document.getElementById("message_box");
+
+        // Clear all child nodes by setting innerHTML to an empty string
+        messageBox.innerHTML = "";
+    }
+
     // we emit a join room event to the server to join a room
     function join_room(button) {
 
@@ -520,6 +547,7 @@
         }
 
         friendInput.value = receiver;
+        clear_message();
 
         // pass in the receiver of our message to the server
         // as well as the current user's username
@@ -582,7 +610,7 @@
             // announce error if something is wrong
             if (typeof res == "string") {
                 alert(res);
-                window.open("404", "_self")
+                window.open("404", "_self");
                 return;
             }
 
