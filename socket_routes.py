@@ -240,7 +240,7 @@ def get_friend_info(username):
 
     if db_getUser is None:
         print("Unknown User")
-        return url_for('login')
+        return "USER NOT EXIST"
 
     user = db.get_user(username)
 
