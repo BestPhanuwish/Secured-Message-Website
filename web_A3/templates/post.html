@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>{% block title %} {{ post['title'] }} {% endblock %}</h1>
+<span class="badge badge-primary">{{ post['created'] }}</span>
+
+<p>{{post['content']}}</p>
+
+<hr>
+<form action="{{ url_for('delete', post_id=post['id']) }}" method="POST">
+    <input type="submit" value="delete" class="bttn btn-danger btn-sm"
+           onclick="return confirm('Do you confirm to delete?')">
+</form>
+
+{% endblock %}
+

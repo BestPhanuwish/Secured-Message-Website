@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Result</title>
+</head>
+<body>
+    <h1>Search Result</h1>
+    {% if articles %}
+        <ul>
+            {% for i in articles %}
+            <a href="{{url_for('post', post_id=i[0])}}">
+                <h2>{{ i[1] }}</h2>
+            </a>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>没有找到相关文章</p>
+    {% endif %}
+</body>
+</html>
