@@ -139,47 +139,8 @@ def home():
     return render_template("home.jinja", username=request.args.get("username"))
 
 
-# New function for A3
-#
-# app.permanent_session_lifetime = timedelta(days=365)
-#
-# essays = {}  # This will store essays with id as key
-# views_count = {}  # This will store views count for each essay
-#
-# @app.route('/')
-# def index():
-#     return render_template('show.html', essays=essays)
-#
-# @app.route('/submit', methods=['GET', 'POST'])
-# def submit_essay():
-#     if request.method == 'POST':
-#         title = request.form['title']
-#         content = request.form['content']
-#         author = session.get('username')
-#         essay_id = len(essays) + 1
-#         essays[essay_id] = {'title': title, 'content': content, 'author': author}
-#         views_count[essay_id] = 0
-#         return redirect(url_for('index'))
-#     return render_template('submit_essay.html')
-#
-# @app.route('/essay/<int:essay_id>')
-# def view_essay(essay_id):
-#     views_count[essay_id] += 1
-#     return render_template('view_essay.html', essay=essays[essay_id], view_count=views_count[essay_id])
-#
-# @app.route('/delete/<int:essay_id>')
-# def delete_essay(essay_id):
-#     if session.get('username') == essays[essay_id]['author']:
-#         del essays[essay_id]
-#         del views_count[essay_id]
-#     return redirect(url_for('index'))
-
-
-# 创建一个函数用来获取数据库链接
 def get_db_connection():
-    # 创建数据库链接到database.db文件
     conn = sqlite3.connect('web_A3/database.db')
-    # 设置数据的解析方法，有了这个设置，就可以像字典一样访问每一列数据
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -190,12 +151,10 @@ def get_post(post_id):
 
 @app.route('/web_index')
 def web_index():
-    # 调用上面的函数，获取链接
     conn = get_db_connection()
-    # 查询所有数据，放到变量posts中
     posts = conn.execute('SELECT * FROM posts order by created desc').fetchall()
     conn.close()
-    #把查询出来的posts传给网页
+
     return render_template('show.html', posts=posts)
 
 @app.route('/posts/<int:post_id>')
@@ -212,7 +171,7 @@ def new():
         if not title:
             flash("The title can not be empty", category='error')
         elif not content:
-            flash("内容不能为kong", 'info')
+            flash("Can not be empty", 'info')
         else:
             conn = get_db_connection()
             conn.execute('insert into posts (title, content) values(?, ?)', (title, content))
@@ -262,37 +221,26 @@ def about():
 @app.route('/search', methods=['POST'])
 def search():
     keyword = request.form['keyword']
-    # 模拟从数据库中搜索文章
-    articles = search_articles(keyword)  # 假设这个函数根据关键词返回文章列表
+    articles = search_articles(keyword)
     print(articles)
     return render_template('search_results.html', articles=articles)
 
 def search_articles(keyword):
-    # 连接到 SQLite 数据库
     conn = sqlite3.connect('web_A3/database.db')
-    # 创建一个游标对象
+
     cursor = conn.cursor()
 
-    # 构建查询语句，使用通配符实现模糊匹配
     search_pattern = f'%{keyword}%'
     query = "SELECT id, title FROM posts WHERE title LIKE ? OR content LIKE ?"
 
-    # 执行查询
     cursor.execute(query, (search_pattern, search_pattern))
 
-    # 获取所有匹配的记录
     results = cursor.fetchall()
 
-    # 关闭游标和连接
     cursor.close()
     conn.close()
 
-    # 返回结果
     return results
-
-@app.route('/try_comment')
-def try_comment():
-    return render_template('try_comment.html')
 
 
 
